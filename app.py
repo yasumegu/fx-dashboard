@@ -31,14 +31,14 @@ st.markdown("""
         background: linear-gradient(135deg, #16222a 0%, #1a365d 100%);
         border: 2px solid #3b82f6;
         border-radius: 12px;
-        padding: 12px;
+        padding: 10px;
         text-align: center;
     }
     .ask-box {
         background: linear-gradient(135deg, #2a1619 0%, #5d1a21 100%);
         border: 2px solid #ef4444;
         border-radius: 12px;
-        padding: 12px;
+        padding: 10px;
         text-align: center;
     }
     .panel-box {
@@ -53,20 +53,19 @@ st.markdown("""
 
 # --- 現在時刻の取得 (日本時間) ---
 now_jst = datetime.now(JST)
-current_time_str = now_jst.strftime('%y/%m/%d\n%H:%M')
 
 # --- ヘッダー部分 ---
 header_col1, header_col2, header_col3 = st.columns([1, 2, 1])
 with header_col1:
-    st.markdown("### ≡ <span style='font-size:16px;'>チャート</span>", unsafe_allow_html=True)
+    st.markdown("### ≡ <span style='font-size:15px;'>チャート</span>", unsafe_allow_html=True)
 with header_col2:
     bid_val = 111.416 + (now_jst.second % 3) * 0.001
     ask_val = 111.475 + (now_jst.second % 3) * 0.001
-    st.markdown(f"<div style='text-align:center; font-size:13px; color:#8b949e;'><b>AUD/JPY</b> 26/09/24 07:04 <b>O</b> 111.415 <b>H</b> 111.416<br><b>C</b> {bid_val:.3f} <b>L</b> 111.415</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; font-size:12px; color:#8b949e;'><b>AUD/JPY</b> 26/09/24 07:04<br><b>O</b> 111.415 <b>H</b> 111.416 <b>C</b> {bid_val:.3f} <b>L</b> 111.415</div>", unsafe_allow_html=True)
 with header_col3:
-    st.markdown("<div style='text-align:right; font-size:18px;'>⚙️ 🔲</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:right; font-size:16px;'>⚙️ 🔲</div>", unsafe_allow_html=True)
 
-st.markdown("<hr style='margin: 5px 0px; border-color: #21262d;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 4px 0px; border-color: #21262d;'>", unsafe_allow_html=True)
 
 # --- タイムフレーム選択タブ ---
 tf_cols = st.columns(6)
@@ -152,7 +151,7 @@ def render_pro_charts():
         paper_bgcolor='#0c0f17',
         plot_bgcolor='#0c0f17',
         margin=dict(l=5, r=5, t=5, b=5),
-        height=450,
+        height=420,
         showlegend=False
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -165,24 +164,24 @@ col_bid, col_spread, col_ask = st.columns([1.2, 0.6, 1.2])
 with col_bid:
     st.markdown(f"""
     <div class="bid-box">
-        <div style="font-size: 11px; color: #93c5fd;">Bid / 売</div>
-        <div style="font-size: 26px; font-weight: bold; color: #ffffff;">{bid_val:.3f}</div>
+        <div style="font-size: 10px; color: #93c5fd;">Bid / 売</div>
+        <div style="font-size: 22px; font-weight: bold; color: #ffffff;">{bid_val:.3f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col_spread:
     st.markdown(f"""
-    <div style="text-align: center; padding-top: 10px;">
-        <span style="background-color: #1e293b; border-radius: 50%; padding: 6px 10px; font-size: 12px; color: #facc15;">5.9</span>
-        <div style="font-size: 10px; color: #8b949e; margin-top: 4px;">スプレッド</div>
+    <div style="text-align: center; padding-top: 6px;">
+        <span style="background-color: #1e293b; border-radius: 50%; padding: 4px 8px; font-size: 11px; color: #facc15;">5.9</span>
+        <div style="font-size: 9px; color: #8b949e; margin-top: 2px;">スプレッド</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col_ask:
     st.markdown(f"""
     <div class="ask-box">
-        <div style="font-size: 11px; color: #fca5a5;">Ask / 買</div>
-        <div style="font-size: 26px; font-weight: bold; color: #ffffff;">{ask_val:.3f}</div>
+        <div style="font-size: 10px; color: #fca5a5;">Ask / 買</div>
+        <div style="font-size: 22px; font-weight: bold; color: #ffffff;">{ask_val:.3f}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -191,16 +190,36 @@ st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
 p_col1, p_col2, p_col3 = st.columns(3)
 
 with p_col1:
-    st.markdown("<span style='font-size:11px; color:#8b949e;'>純資産額</span><br><b style='font-size:14px;'>98,481 円</b>", unsafe_allow_html=True)
+    st.markdown("<span style='font-size:10px; color:#8b949e;'>純資産額</span><br><b style='font-size:13px;'>98,481 円</b>", unsafe_allow_html=True)
 with p_col2:
-    st.markdown("<span style='font-size:11px; color:#8b949e;'>数量 (Lot)</span><br><b style='font-size:14px;'>23 (評価損益: <span style='color:#ef4444;'>-4,669円</span>)</b>", unsafe_allow_html=True)
+    st.markdown("<span style='font-size:10px; color:#8b949e;'>数量 (Lot)</span><br><b style='font-size:13px;'>23 (<span style='color:#ef4444;'>-4,669円</span>)</b>", unsafe_allow_html=True)
 with p_col3:
     st.toggle("一括決済", value=False, key="batch_close")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
+# --- スマホでも必ず表示される「判定・エントリー条件チェックリスト」セクション ---
+st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+st.markdown("#### 🎯 エントリー候補・条件判定", unsafe_allow_html=True)
+st.success("判定：買い優勢（エントリーチャンス）")
+st.write("買い条件 7 / 8 成立")
+st.progress(7/8)
+
+st.markdown("""
+| 項目 | 判定 | 値 / 状態 |
+| :--- | :---: | :--- |
+| EMA20 > EMA75 | 🟢 | 113.412 > 113.368 |
+| RSI (40〜60) | 🟢 | 56.8 (中立) |
+| MACDゴールデンクロス | 🟢 | 成立中 |
+| ボリンジャーバンド下限反発 | 🟢 | -1σタッチ |
+| ADX (トレンド強度) | 🟢 | 31.4 (>25) |
+| 上位足トレンド(15分) | ❌ | やや弱い |
+| スプレッド条件 | 🟢 | 5.9 pips |
+""")
+st.markdown("</div>", unsafe_allow_html=True)
+
 # --- フッター（最終更新時刻） ---
-st.markdown(f"<div style='text-align: right; font-size: 11px; color: #8b949e;'>Updated {now_jst.strftime('%Y/%m/%d %H:%M:%S')}</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align: right; font-size: 10px; color: #8b949e;'>Updated {now_jst.strftime('%Y/%m/%d %H:%M:%S')}</div>", unsafe_allow_html=True)
 
 # --- 5秒ごとに自動で画面を再読み込みしてリアルタイムに動かす ---
 time.sleep(5)
