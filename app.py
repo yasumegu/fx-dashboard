@@ -1,4 +1,3 @@
-cat << 'EOF' > app.py
 import streamlit as st
 
 # ページ全体のレイアウト設定（ワイド画面対応）
@@ -62,4 +61,3 @@ with col_right:
     | ADX (>25) | 🟢 | 31.4 |
     | 上位足トレンド(15分) | ❌ | やや弱い |
     """)
-EOF
