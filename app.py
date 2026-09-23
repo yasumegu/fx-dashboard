@@ -2,6 +2,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+from datetime import datetime, timedelta
 
 # ページ全体のレイアウト設定（ワイド画面対応）
 st.set_page_config(
@@ -37,14 +38,32 @@ with col1:
 with col2:
     st.markdown("### 113.428 <span style='font-size:14px; color:#22c55e;'>+0.236 (+0.21%)</span>", unsafe_allow_html=True)
 
-# --- チャートを描画する共通関数 ---
-def render_candlestick_chart(timeframe_name):
-    np.random.seed(42)
-    dates = pd.date_range(start="2026-09-24 09:00", periods=50, freq="1min")
-    close_prices = 113.0 + np.cumsum(np.random.randn(50) * 0.05)
-    open_prices = close_prices + np.random.randn(50) * 0.02
-    high_prices = np.maximum(open_prices, close_prices) + np.abs(np.random.randn(50) * 0.03)
-    low_prices = np.minimum(open_prices, close_prices) - np.abs(np.random.randn(50) * 0.03)
+# --- 時間足に応じたデータを生成する関数 ---
+def render_candlestick_chart(timeframe_key, timeframe_name):
+    # 時間足に応じたデータの時間間隔（freq）を設定
+    freq_map = {
+        "1分": "1min",
+        "5分": "5min",
+        "15分": "15min",
+        "1時間": "1h",
+        "4時間": "4h",
+        "日足": "1D"
+    }
+    freq = freq_map.get(timeframe_key, "1min")
+    
+    # 現在時刻を基準にして過去に向かってデータを生成
+    end_time = datetime.now()
+    periods = 50
+    dates = pd.date_range(end=end_time, periods=periods, freq=freq)
+    
+    # 時間足ごとにボラティリティ（値動きの幅）を変えてリアルさを演出
+    np.random.seed(hash(timeframe_key) % 2**32)
+    volatility = 0.05 if "分" in timeframe_key else (0.2 if "時間" in timeframe_key else 0.8)
+    
+    close_prices = 113.0 + np.cumsum(np.random.randn(periods) * volatility)
+    open_prices = close_prices + np.random.randn(periods) * (volatility * 0.4)
+    high_prices = np.maximum(open_prices, close_prices) + np.abs(np.random.randn(periods) * (volatility * 0.5))
+    low_prices = np.minimum(open_prices, close_prices) - np.abs(np.random.randn(periods) * (volatility * 0.5))
     
     df = pd.DataFrame({
         'Date': dates,
@@ -81,27 +100,26 @@ def render_candlestick_chart(timeframe_name):
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["1分", "5分", "15分", "1時間", "4時間", "日足"])
 
 with tab1:
-    render_candlestick_chart("1分足")
+    render_candlestick_chart("1分", "1分足")
 with tab2:
-    render_candlestick_chart("5分足")
+    render_candlestick_chart("5分", "5分足")
 with tab3:
-    render_candlestick_chart("15分足")
+    render_candlestick_chart("15分", "15分足")
 with tab4:
-    render_candlestick_chart("1時間足")
+    render_candlestick_chart("1時間", "1時間足")
 with tab5:
-    render_candlestick_chart("4時間足")
+    render_candlestick_chart("4時間", "4時間足")
 with tab6:
-    render_candlestick_chart("日足")
+    render_candlestick_chart("日足", "日足")
 
 # --- エントリー候補・条件チェックリスト ---
 col_left, col_right = st.columns([1.2, 1])
 
 with col_left:
     st.markdown("#### 📊 テクニカル指標エリア（RSI / MACD）")
-    np.random.seed(42)
-    dates = pd.date_range(start="2026-09-24 09:00", periods=50, freq="1min")
+    dates_rsi = pd.date_range(end=datetime.now(), periods=50, freq="1min")
     fig_rsi = go.Figure()
-    fig_rsi.add_trace(go.Scatter(x=dates, y=50 + np.sin(np.arange(50))*15, line=dict(color='#a855f7', width=1.5), name='RSI (14)'))
+    fig_rsi.add_trace(go.Scatter(x=dates_rsi, y=50 + np.sin(np.arange(50))*15, line=dict(color='#a855f7', width=1.5), name='RSI (14)'))
     fig_rsi.update_layout(
         template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117',
         margin=dict(l=10, r=10, t=10, b=10), height=180
