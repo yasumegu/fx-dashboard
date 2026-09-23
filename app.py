@@ -2,7 +2,10 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# JST (日本時間) の定義
+JST = timezone(timedelta(hours=+9), 'JST')
 
 # ページ全体のレイアウト設定（ワイド画面対応）
 st.set_page_config(
@@ -28,8 +31,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- 現在時刻の取得 (日本時間) ---
+now_jst = datetime.now(JST)
+
 # --- ヘッダー部分 ---
 st.markdown("### 📈 FX Analysis AI <span style='font-size:12px; color:#8b949e;'>リアルタイム分析 × 予測 × 検証</span>", unsafe_allow_html=True)
+st.caption(f"現在の基準時刻 (JST): {now_jst.strftime('%Y-%m-%d %H:%M:%S')}")
 
 # --- 通貨ペア・価格ヘッダー（横並び） ---
 col1, col2 = st.columns([1, 1])
@@ -50,12 +57,14 @@ def render_candlestick_chart(timeframe_key, timeframe_name):
     }
     freq = freq_map.get(timeframe_key, "1min")
     
-    # 常に「今（現在時刻）」を右端の終点にする
-    end_time = datetime.now()
+    # 常に「今（JSTの現在時刻）」を右端の終点にする
+    end_time = datetime.now(JST).replace(tzinfo=None) # pandasとの互換性のためタイムゾーンを外す
     periods = 50
+    
+    # 各時間足に応じた間隔で過去から現在までを生成
     dates = pd.date_range(end=end_time, periods=periods, freq=freq)
     
-    np.random.seed(int(end_time.timestamp()) // 60 + hash(timeframe_key) % 100) # 時間経過で波形が少し変わるように調整
+    np.random.seed(int(end_time.timestamp()) // 60 + hash(timeframe_key) % 100)
     volatility = 0.05 if "分" in timeframe_key else (0.2 if "時間" in timeframe_key else 0.8)
     
     close_prices = 113.0 + np.cumsum(np.random.randn(periods) * volatility)
@@ -90,7 +99,8 @@ def render_candlestick_chart(timeframe_key, timeframe_name):
         plot_bgcolor='#0e1117',
         margin=dict(l=10, r=10, t=10, b=10),
         height=400,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis=dict(range=[dates[0], dates[-1]])
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -115,12 +125,14 @@ col_left, col_right = st.columns([1.2, 1])
 
 with col_left:
     st.markdown("#### 📊 テクニカル指標エリア（RSI / MACD）")
-    dates_rsi = pd.date_range(end=datetime.now(), periods=50, freq="1min")
+    end_time = datetime.now(JST).replace(tzinfo=None)
+    dates_rsi = pd.date_range(end=end_time, periods=50, freq="1min")
     fig_rsi = go.Figure()
     fig_rsi.add_trace(go.Scatter(x=dates_rsi, y=50 + np.sin(np.arange(50))*15, line=dict(color='#a855f7', width=1.5), name='RSI (14)'))
     fig_rsi.update_layout(
         template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117',
-        margin=dict(l=10, r=10, t=10, b=10), height=180
+        margin=dict(l=10, r=10, t=10, b=10), height=180,
+        xaxis=dict(range=[dates_rsi[0], dates_rsi[-1]])
     )
     st.plotly_chart(fig_rsi, use_container_width=True)
 
