@@ -2,7 +2,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # ページ全体のレイアウト設定（ワイド画面対応）
 st.set_page_config(
@@ -38,9 +38,8 @@ with col1:
 with col2:
     st.markdown("### 113.428 <span style='font-size:14px; color:#22c55e;'>+0.236 (+0.21%)</span>", unsafe_allow_html=True)
 
-# --- 時間足に応じたデータを生成する関数 ---
+# --- リアルタイム現在時刻を基準にしたチャート生成関数 ---
 def render_candlestick_chart(timeframe_key, timeframe_name):
-    # 時間足に応じたデータの時間間隔（freq）を設定
     freq_map = {
         "1分": "1min",
         "5分": "5min",
@@ -51,13 +50,12 @@ def render_candlestick_chart(timeframe_key, timeframe_name):
     }
     freq = freq_map.get(timeframe_key, "1min")
     
-    # 現在時刻を基準にして過去に向かってデータを生成
+    # 常に「今（現在時刻）」を右端の終点にする
     end_time = datetime.now()
     periods = 50
     dates = pd.date_range(end=end_time, periods=periods, freq=freq)
     
-    # 時間足ごとにボラティリティ（値動きの幅）を変えてリアルさを演出
-    np.random.seed(hash(timeframe_key) % 2**32)
+    np.random.seed(int(end_time.timestamp()) // 60 + hash(timeframe_key) % 100) # 時間経過で波形が少し変わるように調整
     volatility = 0.05 if "分" in timeframe_key else (0.2 if "時間" in timeframe_key else 0.8)
     
     close_prices = 113.0 + np.cumsum(np.random.randn(periods) * volatility)
