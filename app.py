@@ -54,14 +54,21 @@ st.markdown("""
 # --- 現在時刻の取得 (日本時間) ---
 now_jst = datetime.now(JST)
 
+# --- レートおよびスプレッドのリアルタイム変動計算 ---
+# 秒数や分数を活用して、Bid/Ask、スプレッドがリアルタイムに変動するように設定
+np.random.seed(int(now_jst.timestamp()) // 5)
+base_price = 111.415 + (now_jst.minute % 10) * 0.002
+bid_val = base_price + (now_jst.second % 3) * 0.001
+# スプレッドをリアルタイムに変動させる（例: 4.5 〜 6.8 pipsの間でライブ変動）
+spread_val = 4.5 + (now_jst.second % 5) * 0.4 + (now_jst.microsecond % 10) * 0.05
+ask_val = bid_val + (spread_val * 0.01)
+
 # --- ヘッダー部分 ---
 header_col1, header_col2, header_col3 = st.columns([1, 2, 1])
 with header_col1:
     st.markdown("### ≡ <span style='font-size:15px;'>チャート</span>", unsafe_allow_html=True)
 with header_col2:
-    bid_val = 111.416 + (now_jst.second % 3) * 0.001
-    ask_val = 111.475 + (now_jst.second % 3) * 0.001
-    st.markdown(f"<div style='text-align:center; font-size:12px; color:#8b949e;'><b>AUD/JPY</b> 26/09/24 07:04<br><b>O</b> 111.415 <b>H</b> 111.416 <b>C</b> {bid_val:.3f} <b>L</b> 111.415</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; font-size:12px; color:#8b949e;'><b>AUD/JPY</b> {now_jst.strftime('%y/%m/%d %H:%M')}<br><b>O</b> {base_price:.3f} <b>H</b> {ask_val:.3f} <b>C</b> {bid_val:.3f} <b>L</b> {base_price-0.005:.3f}</div>", unsafe_allow_html=True)
 with header_col3:
     st.markdown("<div style='text-align:right; font-size:16px;'>⚙️ 🔲</div>", unsafe_allow_html=True)
 
@@ -88,7 +95,6 @@ def render_pro_charts():
     periods = 60
     dates = pd.date_range(end=now_jst.replace(tzinfo=None), periods=periods, freq="1min")
     
-    np.random.seed(int(now_jst.timestamp()) // 10)
     volatility = 0.04
     close_prices = 111.35 + np.cumsum(np.random.randn(periods) * volatility)
     open_prices = close_prices + np.random.randn(periods) * (volatility * 0.4)
@@ -172,7 +178,7 @@ with col_bid:
 with col_spread:
     st.markdown(f"""
     <div style="text-align: center; padding-top: 6px;">
-        <span style="background-color: #1e293b; border-radius: 50%; padding: 4px 8px; font-size: 11px; color: #facc15;">5.9</span>
+        <span style="background-color: #1e293b; border-radius: 50%; padding: 4px 8px; font-size: 11px; color: #facc15;">{spread_val:.1f}</span>
         <div style="font-size: 9px; color: #8b949e; margin-top: 2px;">スプレッド</div>
     </div>
     """, unsafe_allow_html=True)
@@ -198,14 +204,14 @@ with p_col3:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- スマホでも必ず表示される「判定・エントリー条件チェックリスト」セクション ---
+# --- 判定・エントリー条件チェックリストセクション ---
 st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
 st.markdown("#### 🎯 エントリー候補・条件判定", unsafe_allow_html=True)
 st.success("判定：買い優勢（エントリーチャンス）")
 st.write("買い条件 7 / 8 成立")
 st.progress(7/8)
 
-st.markdown("""
+st.markdown(f"""
 | 項目 | 判定 | 値 / 状態 |
 | :--- | :---: | :--- |
 | EMA20 > EMA75 | 🟢 | 113.412 > 113.368 |
@@ -214,7 +220,7 @@ st.markdown("""
 | ボリンジャーバンド下限反発 | 🟢 | -1σタッチ |
 | ADX (トレンド強度) | 🟢 | 31.4 (>25) |
 | 上位足トレンド(15分) | ❌ | やや弱い |
-| スプレッド条件 | 🟢 | 5.9 pips |
+| スプレッド条件 | 🟢 | {spread_val:.1f} pips (基準値内) |
 """)
 st.markdown("</div>", unsafe_allow_html=True)
 
