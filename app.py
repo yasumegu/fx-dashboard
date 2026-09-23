@@ -1,5 +1,6 @@
 import streamlit as st
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone, timedelta
@@ -8,25 +9,43 @@ import time
 # JST (日本時間) の定義
 JST = timezone(timedelta(hours=+9), 'JST')
 
-# ページ全体のレイアウト設定（ワイド画面対応）
+# ページ全体のレイアウト設定（スマホアプリ風のコンパクトかつダークなデザイン）
 st.set_page_config(
-    page_title="FX Analysis AI",
+    page_title="FX Trading Dashboard",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- カスタムCSS（ダークテーマ & カードデザイン） ---
+# --- カスタムCSS（ダークテーマ & FXトレード画面風スタイル） ---
 st.markdown("""
 <style>
     .main {
-        background-color: #0e1117;
+        background-color: #0c0f17;
+        color: #e6e6e6;
     }
-    .metric-card {
-        background-color: #161b22;
-        padding: 15px;
+    .stApp {
+        background-color: #0c0f17;
+    }
+    .bid-box {
+        background: linear-gradient(135deg, #16222a 0%, #1a365d 100%);
+        border: 2px solid #3b82f6;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+    }
+    .ask-box {
+        background: linear-gradient(135deg, #2a1619 0%, #5d1a21 100%);
+        border: 2px solid #ef4444;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+    }
+    .panel-box {
+        background-color: #131822;
+        border: 1px solid #21262d;
         border-radius: 10px;
-        border: 1px solid #30363d;
+        padding: 12px;
         margin-bottom: 10px;
     }
 </style>
@@ -34,126 +53,155 @@ st.markdown("""
 
 # --- 現在時刻の取得 (日本時間) ---
 now_jst = datetime.now(JST)
+current_time_str = now_jst.strftime('%y/%m/%d\n%H:%M')
 
 # --- ヘッダー部分 ---
-st.markdown("### 📈 FX Analysis AI <span style='font-size:12px; color:#8b949e;'>リアルタイム分析 × 予測 × 検証 (ライブモード)</span>", unsafe_allow_html=True)
-st.caption(f"現在のリアルタイム基準時刻 (JST): {now_jst.strftime('%Y-%m-%d %H:%M:%S')}")
+header_col1, header_col2, header_col3 = st.columns([1, 2, 1])
+with header_col1:
+    st.markdown("### ≡ <span style='font-size:16px;'>チャート</span>", unsafe_allow_html=True)
+with header_col2:
+    bid_val = 111.416 + (now_jst.second % 3) * 0.001
+    ask_val = 111.475 + (now_jst.second % 3) * 0.001
+    st.markdown(f"<div style='text-align:center; font-size:13px; color:#8b949e;'><b>AUD/JPY</b> 26/09/24 07:04 <b>O</b> 111.415 <b>H</b> 111.416<br><b>C</b> {bid_val:.3f} <b>L</b> 111.415</div>", unsafe_allow_html=True)
+with header_col3:
+    st.markdown("<div style='text-align:right; font-size:18px;'>⚙️ 🔲</div>", unsafe_allow_html=True)
 
-# --- 通貨ペア・価格ヘッダー（横並び） ---
-col1, col2 = st.columns([1, 1])
-with col1:
-    st.markdown("### 🇦🇺 AUD/JPY <span style='font-size:14px; color:#8b949e;'>豪ドル/円</span>", unsafe_allow_html=True)
-with col2:
-    # リアルタイム感を出すために秒数に応じて価格を微小に変動させる
-    live_price = 113.428 + (now_jst.second % 5) * 0.002
-    st.markdown(f"### {live_price:.3f} <span style='font-size:14px; color:#22c55e;'>+0.236 (+0.21%)</span>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 5px 0px; border-color: #21262d;'>", unsafe_allow_html=True)
 
-# --- リアルタイム現在時刻を基準にしたチャート生成関数 ---
-def render_candlestick_chart(timeframe_key, timeframe_name):
-    freq_map = {
-        "1分": "1min",
-        "5分": "5min",
-        "15分": "15min",
-        "1時間": "1h",
-        "4時間": "4h",
-        "日足": "1D"
-    }
-    freq = freq_map.get(timeframe_key, "1min")
+# --- タイムフレーム選択タブ ---
+tf_cols = st.columns(6)
+timeframe = "1分"
+with tf_cols[0]:
+    if st.button("1分", use_container_width=True): timeframe = "1分"
+with tf_cols[1]:
+    if st.button("5分", use_container_width=True): timeframe = "5分"
+with tf_cols[2]:
+    if st.button("15分", use_container_width=True): timeframe = "15分"
+with tf_cols[3]:
+    if st.button("1時間", use_container_width=True): timeframe = "1時間"
+with tf_cols[4]:
+    if st.button("4時間", use_container_width=True): timeframe = "4時間"
+with tf_cols[5]:
+    if st.button("日足", use_container_width=True): timeframe = "日足"
+
+# --- 高機能サブプロットチャート（ローソク足 ＋ ボリンジャーバンド ＋ MACD ＋ RSI） ---
+def render_pro_charts():
+    periods = 60
+    dates = pd.date_range(end=now_jst.replace(tzinfo=None), periods=periods, freq="1min")
     
-    # 常に「今（JSTの現在時刻）」を右端の終点にする
-    end_time = datetime.now(JST).replace(tzinfo=None)
-    periods = 50
-    
-    dates = pd.date_range(end=end_time, periods=periods, freq=freq)
-    
-    # 秒単位の変動をシードに反映させてチャートが動くようにする
-    np.random.seed(int(end_time.timestamp()) // 10 + hash(timeframe_key) % 100)
-    volatility = 0.05 if "分" in timeframe_key else (0.2 if "時間" in timeframe_key else 0.8)
-    
-    close_prices = 113.0 + np.cumsum(np.random.randn(periods) * volatility)
+    np.random.seed(int(now_jst.timestamp()) // 10)
+    volatility = 0.04
+    close_prices = 111.35 + np.cumsum(np.random.randn(periods) * volatility)
     open_prices = close_prices + np.random.randn(periods) * (volatility * 0.4)
     high_prices = np.maximum(open_prices, close_prices) + np.abs(np.random.randn(periods) * (volatility * 0.5))
     low_prices = np.minimum(open_prices, close_prices) - np.abs(np.random.randn(periods) * (volatility * 0.5))
     
-    df = pd.DataFrame({
-        'Date': dates,
-        'Open': open_prices,
-        'High': high_prices,
-        'Low': low_prices,
-        'Close': close_prices
-    })
+    df = pd.DataFrame({'Date': dates, 'Open': open_prices, 'High': high_prices, 'Low': low_prices, 'Close': close_prices})
     
-    df['EMA20'] = df['Close'].ewm(span=20).mean()
-    df['EMA75'] = df['Close'].ewm(span=75).mean()
+    # ボリンジャーバンド計算 (期間10)
+    df['MA10'] = df['Close'].rolling(10).mean()
+    df['STD10'] = df['Close'].rolling(10).std()
+    df['BB_UP1'] = df['MA10'] + 1 * df['STD10']
+    df['BB_DN1'] = df['MA10'] - 1 * df['STD10']
+    df['BB_UP2'] = df['MA10'] + 2 * df['STD10']
+    df['BB_DN2'] = df['MA10'] - 2 * df['STD10']
+    df['BB_UP3'] = df['MA10'] + 3 * df['STD10']
+    df['BB_DN3'] = df['MA10'] - 3 * df['STD10']
+    
+    # MACD計算
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = exp1 - exp2
+    df['Signal'] = df['MACD'].ewm(span=10, adjust=False).mean()
+    df['Hist'] = df['MACD'] - df['Signal']
+    
+    # RSI計算
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
 
-    fig = go.Figure()
+    # 3段サブプロット (ローソク+BB / MACD / RSI)
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
+                        vertical_spacing=0.03, row_heights=[0.55, 0.22, 0.23])
+
+    # 1. ローソク足 & ボリンジャーバンド
     fig.add_trace(go.Candlestick(
-        x=df['Date'], open=df['Open'], high=df['High'],
-        low=df['Low'], close=df['Close'],
-        name=f'AUD/JPY ({timeframe_name})',
-        increasing_line_color='#22c55e', decreasing_line_color='#ef4444'
-    ))
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['EMA20'], line=dict(color='#3b82f6', width=1.5), name='EMA 20'))
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['EMA75'], line=dict(color='#eab308', width=1.5), name='EMA 75'))
+        x=df['Date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+        name='AUD/JPY', increasing_line_color='#22c55e', decreasing_line_color='#ef4444'
+    ), row=1, col=1)
+    
+    for col_name, color in [('BB_UP3', '#8b5cf6'), ('BB_UP2', '#3b82f6'), ('BB_UP1', '#06b6d4'),
+                            ('BB_DN1', '#06b6d4'), ('BB_DN2', '#3b82f6'), ('BB_DN3', '#8b5cf6')]:
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[col_name], line=dict(color=color, width=1), showlegend=False), row=1, col=1)
+
+    # 2. MACD
+    fig.add_trace(go.Bar(x=df['Date'], y=df['Hist'], marker_color=np.where(df['Hist']>=0, '#22c55e', '#ef4444'), name='Hist'), row=2, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MACD'], line=dict(color='#ef4444', width=1.2), name='MACD'), row=2, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['Signal'], line=dict(color='#3b82f6', width=1.2), name='Signal'), row=2, col=1)
+
+    # 3. RSI
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['RSI'], line=dict(color='#eab308', width=1.5), name='RSI'), row=3, col=1)
+    fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", row=3, col=1)
+    fig.add_hline(y=50, line_dash="dot", line_color="#555555", row=3, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="#3b82f6", row=3, col=1)
 
     fig.update_layout(
         template="plotly_dark",
-        paper_bgcolor='#0e1117',
-        plot_bgcolor='#0e1117',
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=400,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis=dict(range=[dates[0], dates[-1]])
+        paper_bgcolor='#0c0f17',
+        plot_bgcolor='#0c0f17',
+        margin=dict(l=5, r=5, t=5, b=5),
+        height=450,
+        showlegend=False
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# --- タブ切り替え ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["1分", "5分", "15分", "1時間", "4時間", "日足"])
+render_pro_charts()
 
-with tab1:
-    render_candlestick_chart("1分", "1分足")
-with tab2:
-    render_candlestick_chart("5分", "5分足")
-with tab3:
-    render_candlestick_chart("15分", "15分足")
-with tab4:
-    render_candlestick_chart("1時間", "1時間足")
-with tab5:
-    render_candlestick_chart("4時間", "4時間足")
-with tab6:
-    render_candlestick_chart("日足", "日足")
+# --- 下部トレード・レート発注パネル ---
+col_bid, col_spread, col_ask = st.columns([1.2, 0.6, 1.2])
 
-# --- エントリー候補・条件チェックリスト ---
-col_left, col_right = st.columns([1.2, 1])
+with col_bid:
+    st.markdown(f"""
+    <div class="bid-box">
+        <div style="font-size: 11px; color: #93c5fd;">Bid / 売</div>
+        <div style="font-size: 26px; font-weight: bold; color: #ffffff;">{bid_val:.3f}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-with col_left:
-    st.markdown("#### 📊 テクニカル指標エリア（RSI / MACD）")
-    end_time = datetime.now(JST).replace(tzinfo=None)
-    dates_rsi = pd.date_range(end=end_time, periods=50, freq="1min")
-    fig_rsi = go.Figure()
-    fig_rsi.add_trace(go.Scatter(x=dates_rsi, y=50 + np.sin(np.arange(50))*15, line=dict(color='#a855f7', width=1.5), name='RSI (14)'))
-    fig_rsi.update_layout(
-        template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117',
-        margin=dict(l=10, r=10, t=10, b=10), height=180,
-        xaxis=dict(range=[dates_rsi[0], dates_rsi[-1]])
-    )
-    st.plotly_chart(fig_rsi, use_container_width=True)
+with col_spread:
+    st.markdown(f"""
+    <div style="text-align: center; padding-top: 10px;">
+        <span style="background-color: #1e293b; border-radius: 50%; padding: 6px 10px; font-size: 12px; color: #facc15;">5.9</span>
+        <div style="font-size: 10px; color: #8b949e; margin-top: 4px;">スプレッド</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-with col_right:
-    st.markdown("#### 🎯 エントリー候補")
-    st.success("判定：買い優勢（エントリーチャンス）")
-    st.write("買い条件 7 / 8 成立")
-    st.progress(7/8)
-    
-    st.markdown("""
-    | 項目 | 判定 | 値 |
-    | :--- | :---: | :--- |
-    | EMA20 > EMA75 | 🟢 | 113.412 > 113.368 |
-    | RSI (40〜60) | 🟢 | 56.8 |
-    | ADX (>25) | 🟢 | 31.4 |
-    | 上位足トレンド(15分) | ❌ | やや弱い |
-    """)
+with col_ask:
+    st.markdown(f"""
+    <div class="ask-box">
+        <div style="font-size: 11px; color: #fca5a5;">Ask / 買</div>
+        <div style="font-size: 26px; font-weight: bold; color: #ffffff;">{ask_val:.3f}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- 10秒ごとに自動で画面を再読み込みして時計とチャートをリアルタイム更新する ---
-time.sleep(10)
+# --- 口座状況・Lot数・一括決済パネル ---
+st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+p_col1, p_col2, p_col3 = st.columns(3)
+
+with p_col1:
+    st.markdown("<span style='font-size:11px; color:#8b949e;'>純資産額</span><br><b style='font-size:14px;'>98,481 円</b>", unsafe_allow_html=True)
+with p_col2:
+    st.markdown("<span style='font-size:11px; color:#8b949e;'>数量 (Lot)</span><br><b style='font-size:14px;'>23 (評価損益: <span style='color:#ef4444;'>-4,669円</span>)</b>", unsafe_allow_html=True)
+with p_col3:
+    st.toggle("一括決済", value=False, key="batch_close")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --- フッター（最終更新時刻） ---
+st.markdown(f"<div style='text-align: right; font-size: 11px; color: #8b949e;'>Updated {now_jst.strftime('%Y/%m/%d %H:%M:%S')}</div>", unsafe_allow_html=True)
+
+# --- 5秒ごとに自動で画面を再読み込みしてリアルタイムに動かす ---
+time.sleep(5)
 st.rerun()
